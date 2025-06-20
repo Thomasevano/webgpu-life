@@ -1,24 +1,34 @@
-import './style.css'
-import typescriptLogo from './typescript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.ts'
+const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://www.typescriptlang.org/" target="_blank">
-      <img src="${typescriptLogo}" class="logo vanilla" alt="TypeScript logo" />
-    </a>
-    <h1>Vite + TypeScript</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite and TypeScript logos to learn more
-    </p>
-  </div>
-`
+if (!navigator.gpu) {
+  throw new Error("WebGPU not supported on this browser.");
+}
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+const adapter = await navigator.gpu?.requestAdapter();
+if (!adapter) {
+  throw new Error("No appropriate GPUAdapter found.");
+}
+const device = await adapter.requestDevice();
+
+const context = canvas.getContext("webgpu");
+const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+context.configure({
+  device: device,
+  format: canvasFormat,
+});
+
+const encoder = device.createCommandEncoder();
+
+const pass = encoder.beginRenderPass({
+  colorAttachments: [{
+    view: context.getCurrentTexture().createView(),
+    loadOp: "clear",
+    clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+    storeOp: "store",
+  }]
+});
+pass.end();
+
+const commandBuffer = encoder.finish();
+device.queue.submit([commandBuffer]);
+device.queue.submit([encoder.finish()]);
