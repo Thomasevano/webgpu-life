@@ -46,26 +46,41 @@ const vertexBufferLayout = {
 const cellShaderModule = device.createShaderModule({
   label: "Cell shader",
   code: `
+    struct VertexInput {
+      @location(0) pos: vec2f,
+      @builtin(instance_index) instance: u32,
+    };
+
+    struct VertexOutput {
+      @builtin(position) pos: vec4f,
+      @location(0) cell: vec2f,
+    };
+
     @group(0) @binding(0) var<uniform> grid: vec2f;
 
     @vertex
-    fn vertexMain(@location(0) pos: vec2f, 
-                  @builtin(instance_index) instance: u32) -> 
-      @builtin(position) vec4f {
-
-        let i = f32(instance);
+    fn vertexMain(input: VertexInput) -> VertexOutput {
+        let i = f32(input.instance);
         let cell = vec2f(i % grid.x,floor(i / grid.x));
 
         let cellOffset = cell / grid * 2;
-        let gridPos = (pos + 1) / grid - 1 + cellOffset;
+        let gridPos = (input.pos + 1) / grid - 1 + cellOffset;
 
-        return vec4f(gridPos, 0, 1); // (x, y, z, w)
-      }
+        var output: VertexOutput;
+        output.pos = vec4f(gridPos, 0, 1); // (x, y, z, w)
+        output.cell = cell;
+        return output;
+    }
 
-      @fragment
-      fn fragmentMain() -> @location(0) vec4<f32> {
-        return vec4f(1, 0, 0, 1); // (r, g, b, a)
-      }
+    // struct FragInput {
+    //   @location(0) cell: vec2f,
+    // };
+
+    @fragment
+    fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+    let c = input.cell / grid;
+      return vec4f(c, 1-c.x, 1); // (r, g, b, a)
+    }
   `
 });
 
@@ -112,7 +127,7 @@ const pass = encoder.beginRenderPass({
   colorAttachments: [{
     view: context.getCurrentTexture().createView(),
     loadOp: "clear",
-    clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+    clearValue: { r: 0, g: 0, b: 0.4, a: 1 },
     storeOp: "store",
   }]
 });
